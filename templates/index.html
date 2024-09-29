@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KMeans Clustering</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>KMeans Clustering Visualization</h1>
+    
+    <div>
+        <label for="init-method">Initialization Method:</label>
+        <select id="init-method">
+            <option value="random">Random</option>
+            <option value="farthest">Farthest First</option>
+            <option value="kmeans++">KMeans++</option>
+        </select>
+        <button onclick="generateDataset()">Generate Dataset</button>
+        <button onclick="initializeKMeans()">Initialize KMeans</button>
+        <button onclick="stepKMeans()">Step</button>
+        <button onclick="convergeKMeans()">Converge</button>
+        <button onclick="resetKMeans()">Reset</button>
+    </div>
+
+    <div id="plot"></div>
+
+    <script>
+        let dataPoints = [];
+        let centroids = [];
+
+        function plotData() {
+            const trace1 = {
+                x: dataPoints.map(p => p[0]),
+                y: dataPoints.map(p => p[1]),
+                mode: 'markers',
+                type: 'scatter',
+                marker: { color: 'blue' }
+            };
+
+            const trace2 = {
+                x: centroids.map(c => c[0]),
+                y: centroids.map(c => c[1]),
+                mode: 'markers',
+                type: 'scatter',
+                marker: { color: 'red', size: 12 }
+            };
+
+            const layout = {
+                title: 'KMeans Clustering',
+                xaxis: { range: [0, 1] },
+                yaxis: { range: [0, 1] }
+            };
+
+            Plotly.newPlot('plot', [trace1, trace2], layout);
+        }
+
+        function generateDataset() {
+            fetch('/generate_dataset', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    dataPoints = data.data;
+                    plotData();
+                });
+        }
+
+        function initializeKMeans() {
+            const method = document.getElementById('init-method').value;
+            fetch('/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ method })
+            })
+            .then(response => response.json())
+            .then(data => {
+                centroids = data.centroids;
+                plotData();
+            });
+        }
+
+        function stepKMeans() {
+            fetch('/step', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    centroids = data.centroids;
+                    plotData();
+                });
+        }
+
+        function convergeKMeans() {
+            fetch('/converge', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    centroids = data.centroids;
+                    plotData();
+                });
+        }
+
+        function resetKMeans() {
+            fetch('/reset', { method: 'POST' })
+                .then(() => {
+                    centroids = [];
+                    plotData();
+                });
+        }
+    </script>
+</body>
+</html>
