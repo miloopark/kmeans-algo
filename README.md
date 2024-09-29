@@ -35,12 +35,12 @@ This project is an interactive web application that demonstrates the **KMeans Cl
 
    ```bash
    git clone https://github.com/YOUR_GITHUB_USERNAME/kmeans-algo.git
-   cd kmeans-algo
+   cd kmeans-algo```
 
 2. **Install dependencies**:
 
-   ```make install
+   ```make install```
 
 3. **Run application**:
 
-   ```make run
+   ```make run```
