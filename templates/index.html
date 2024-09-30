@@ -2,57 +2,155 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KMeans Clustering</title>
+    <title>KMeans Clustering Algorithm</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            text-align: center;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #2C3E50;
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        label {
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        input[type="number"], select {
+            padding: 10px;
+            margin: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            color: white;
+            background-color: #3498db;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #plot {
+            margin-top: 30px;
+        }
+    </style>
 </head>
 <body>
-    <h1>KMeans Clustering Visualization</h1>
-    
-    <div>
+
+    <h1>KMeans Clustering Algorithm</h1>
+
+    <div class="container">
+        <label for="num-clusters">Number of Clusters (k):</label>
+        <input type="number" id="num-clusters" value="3" min="1" max="10">
+
         <label for="init-method">Initialization Method:</label>
         <select id="init-method">
             <option value="random">Random</option>
             <option value="farthest">Farthest First</option>
             <option value="kmeans++">KMeans++</option>
+            <option value="manual">Manual</option>
         </select>
-        <button onclick="generateDataset()">Generate Dataset</button>
-        <button onclick="initializeKMeans()">Initialize KMeans</button>
-        <button onclick="stepKMeans()">Step</button>
-        <button onclick="convergeKMeans()">Converge</button>
-        <button onclick="resetKMeans()">Reset</button>
-    </div>
 
-    <div id="plot"></div>
+        <button onclick="generateDataset()">Generate New Dataset</button>
+        <button onclick="stepKMeans()">Step Through KMeans</button>
+        <button onclick="convergeKMeans()">Run to Convergence</button>
+        <button onclick="resetKMeans()">Reset Algorithm</button>
+
+        <div id="plot"></div>
+    </div>
 
     <script>
         let dataPoints = [];
         let centroids = [];
+        let assignments = [];
+        let selectedCentroids = [];
+        let convergenceReached = false;
 
         function plotData() {
-            const trace1 = {
-                x: dataPoints.map(p => p[0]),
-                y: dataPoints.map(p => p[1]),
-                mode: 'markers',
-                type: 'scatter',
-                marker: { color: 'blue' }
-            };
+            let traces = [];
 
-            const trace2 = {
-                x: centroids.map(c => c[0]),
-                y: centroids.map(c => c[1]),
-                mode: 'markers',
-                type: 'scatter',
-                marker: { color: 'red', size: 12 }
-            };
+            if (assignments.length > 0) {
+                // Assign colors to clusters
+                const numClusters = Math.max(...assignments) + 1;
+                const colors = [
+                    'red', 'green', 'blue', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan'
+                ];
+
+                for (let i = 0; i < numClusters; i++) {
+                    const clusterPoints = dataPoints.filter((p, idx) => assignments[idx] === i);
+                    const trace = {
+                        x: clusterPoints.map(p => p[0]),
+                        y: clusterPoints.map(p => p[1]),
+                        mode: 'markers',
+                        type: 'scatter',
+                        marker: { color: colors[i % colors.length] },
+                        name: 'Cluster ' + (i + 1)
+                    };
+                    traces.push(trace);
+                }
+            } else {
+                const trace = {
+                    x: dataPoints.map(p => p[0]),
+                    y: dataPoints.map(p => p[1]),
+                    mode: 'markers',
+                    type: 'scatter',
+                    marker: { color: 'blue' },
+                    name: 'Data Points'
+                };
+                traces.push(trace);
+            }
+
+            if (centroids.length > 0) {
+                const centroidTrace = {
+                    x: centroids.map(c => c[0]),
+                    y: centroids.map(c => c[1]),
+                    mode: 'markers',
+                    type: 'scatter',
+                    marker: { color: 'black', symbol: 'x', size: 12 },
+                    name: 'Centroids'
+                };
+                traces.push(centroidTrace);
+            }
 
             const layout = {
-                title: 'KMeans Clustering',
-                xaxis: { range: [0, 1] },
-                yaxis: { range: [0, 1] }
+                title: 'KMeans Clustering Data',
+                xaxis: { range: [-15, 15] },
+                yaxis: { range: [-15, 15] }
             };
 
-            Plotly.newPlot('plot', [trace1, trace2], layout);
+            Plotly.newPlot('plot', traces, layout).then(function() {
+                const method = document.getElementById('init-method').value;
+                if (method === 'manual') {
+                    enableManualCentroidSelection();
+                } else {
+                    disableManualCentroidSelection();
+                }
+            });
         }
 
         function generateDataset() {
@@ -60,49 +158,143 @@
                 .then(response => response.json())
                 .then(data => {
                     dataPoints = data.data;
+                    centroids = [];
+                    assignments = [];
+                    selectedCentroids = [];
+                    convergenceReached = false;
                     plotData();
                 });
         }
 
-        function initializeKMeans() {
+        function enableManualCentroidSelection() {
+            const plotDiv = document.getElementById('plot');
+            plotDiv.on('plotly_click', onPlotClick);
+        }
+
+        function disableManualCentroidSelection() {
+            const plotDiv = document.getElementById('plot');
+            plotDiv.removeAllListeners('plotly_click');
+        }
+
+        function onPlotClick(data) {
+            const numClusters = parseInt(document.getElementById('num-clusters').value);
+            if (selectedCentroids.length >= numClusters) {
+                alert('You have already selected the required number of centroids.');
+                return;
+            }
+            let x = data.points[0].x;
+            let y = data.points[0].y;
+            selectedCentroids.push([x, y]);
+
+            // Update centroids to show the selected centroids as 'x' markers
+            centroids = [...selectedCentroids];
+            plotData();
+
+            if (selectedCentroids.length === numClusters) {
+                alert('You have selected all centroids. You can now run the algorithm.');
+            }
+        }
+
+        document.getElementById('init-method').addEventListener('change', function() {
+            const method = this.value;
+            selectedCentroids = [];
+            centroids = [];
+            assignments = [];
+            convergenceReached = false;
+            if (method === 'manual') {
+                alert('Click on the plot to select centroids.');
+            } else {
+                disableManualCentroidSelection();
+            }
+            plotData();
+        });
+
+        function stepKMeans() {
             const method = document.getElementById('init-method').value;
-            fetch('/initialize', {
+            const numClusters = parseInt(document.getElementById('num-clusters').value);
+
+            if (convergenceReached) {
+                alert('Convergence has already been reached.');
+                return;
+            }
+
+            if (method === 'manual') {
+                if (selectedCentroids.length !== numClusters) {
+                    alert('Please select exactly ' + numClusters + ' centroids.');
+                    return;
+                }
+            }
+
+            fetch('/step', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ method })
+                body: JSON.stringify({ method, num_clusters: numClusters, centroids: selectedCentroids })
             })
             .then(response => response.json())
             .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
                 centroids = data.centroids;
+                assignments = data.assignments;
                 plotData();
+
+                if (data.converged) {
+                    convergenceReached = true;
+                    alert('Convergence reached!');
+                }
             });
         }
 
-        function stepKMeans() {
-            fetch('/step', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    centroids = data.centroids;
-                    plotData();
-                });
-        }
-
         function convergeKMeans() {
-            fetch('/converge', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    centroids = data.centroids;
-                    plotData();
-                });
+            const method = document.getElementById('init-method').value;
+            const numClusters = parseInt(document.getElementById('num-clusters').value);
+
+            if (method === 'manual') {
+                if (selectedCentroids.length !== numClusters) {
+                    alert('Please select exactly ' + numClusters + ' centroids.');
+                    return;
+                }
+            }
+
+            fetch('/converge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ method, num_clusters: numClusters, centroids: selectedCentroids })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                centroids = data.centroids;
+                assignments = data.assignments;
+                plotData();
+
+                convergenceReached = true;
+                alert('Convergence reached!');
+            });
         }
 
         function resetKMeans() {
             fetch('/reset', { method: 'POST' })
                 .then(() => {
                     centroids = [];
+                    assignments = [];
+                    selectedCentroids = [];
+                    convergenceReached = false;
+                    const method = document.getElementById('init-method').value;
+                    if (method !== 'manual') {
+                        disableManualCentroidSelection();
+                    }
                     plotData();
                 });
         }
+
+        // Generate a dataset on page load
+        window.onload = generateDataset;
     </script>
 </body>
 </html>
