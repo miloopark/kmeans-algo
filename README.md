@@ -4,6 +4,8 @@
 
 This project is an interactive web application that demonstrates the **KMeans Clustering Algorithm** using various initialization methods. The goal of this project is to visualize how different initialization methods impact the clustering outcome in real time, as well as allow users to step through the clustering process or converge the clusters directly.
 
+![App Screenshot](./pic.png)
+
 ### Features
 
 - **Initialization Methods**:
